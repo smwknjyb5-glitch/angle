@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>قياس الزاوية بالمنقلة</title>
+<style>
+:root{--bg:#f4f7fb;--card:#fff;--tx:#1d2a3a;--mut:#6b7a8c;--pri:#2563eb;--ok:#16a34a;--ko:#dc2626;--ln:#cbd5e1;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f172a;--card:#1e293b;--tx:#e8eef7;--mut:#94a3b8;--ln:#475569}}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:Tahoma,Arial,sans-serif;display:flex;justify-content:center}
+.app{width:100%;max-width:560px;padding:14px}
+h1{font-size:20px;text-align:center;margin:6px 0 10px}
+.card{background:var(--card);border-radius:16px;padding:10px;box-shadow:0 2px 10px rgba(0,0,0,.08)}
+svg{width:100%;height:auto;display:block;touch-action:none}
+.row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:10px}
+button{font:inherit;font-size:16px;padding:10px 16px;border:0;border-radius:10px;background:var(--pri);color:#fff;cursor:pointer}
+button:disabled{opacity:.4;cursor:not-allowed}
+button.sec{background:#64748b}
+input{font:inherit;font-size:18px;width:110px;padding:9px;border-radius:10px;border:2px solid var(--ln);text-align:center;background:var(--bg);color:var(--tx)}
+#msg{min-height:28px;text-align:center;font-weight:bold;margin-top:10px}
+.score{text-align:center;color:var(--mut);font-size:14px;margin-top:4px}
+.hint{text-align:center;color:var(--mut);font-size:13px;margin-top:6px}
+</style>
+</head>
+<body>
+<div class="app">
+<h1>📐 قياس الزاوية بالمنقلة</h1>
+<div class="card">
+<svg id="s" viewBox="0 0 400 400">
+<g id="proto" style="display:none"></g>
+<path id="arc" d="" fill="rgba(249,115,22,.22)" stroke="#f97316" stroke-width="2.5" style="display:none"/>
+<text id="arcq" x="200" y="200" font-size="18" font-weight="bold" fill="#ea580c" text-anchor="middle" style="display:none">؟</text>
+<circle cx="200" cy="200" r="120" fill="none" stroke="#2563eb" stroke-width="3"/>
+<line x1="200" y1="200" x2="390" y2="200" stroke="#64748b" stroke-width="2" stroke-dasharray="5 4"/>
+<circle cx="200" cy="200" r="4" fill="#64748b"/>
+<circle cx="320" cy="200" r="5" fill="#16a34a"/>
+<text x="332" y="204" font-size="13" fill="#16a34a">0°</text>
+<line id="rad" x1="200" y1="200" x2="200" y2="200" stroke="#dc2626" stroke-width="1.4" style="display:none"/>
+<circle id="pt" cx="320" cy="200" r="8" fill="#dc2626" style="display:none"/>
+</svg>
+</div>
+<div class="row">
+<button id="bNew">🎯 نقطة جديدة</button>
+<button id="bProto" class="sec" disabled>📏 إحضار المنقلة</button>
+</div>
+<div class="row">
+<input id="val" type="number" inputmode="numeric" placeholder="الزاوية °" disabled>
+<button id="bChk" disabled>✔ تحقق</button>
+<button id="bSave" class="sec" style="display:none">💾 حفظ الصورة</button>
+</div>
+<div id="msg"></div>
+<div class="score" id="score">الصحيحة: 0 / 0</div>
+<div class="hint">اقرأ الزاوية من النقطة 0° (الأخضر) عكس عقارب الساعة حتى النقطة الحمراء. يمكنك سحب المنقلة وتدويرها.</div>
+</div>
+<script>
+const NS="http://www.w3.org/2000/svg",C=200,R=120;
+const $=id=>document.getElementById(id);
+let ang=null,tries=0,ok=0,tot=0,busy=false;
+function pos(a,r){const t=a*Math.PI/180;return[C+r*Math.cos(t),C-r*Math.sin(t)]}
+// build protractor (full circle, ticks every degree)
+const proto=$('proto');
+(function(){
+const g=document.createElementNS(NS,'g');g.setAttribute('id','pg');
+const c=document.createElementNS(NS,'circle');
+c.setAttribute('cx',C);c.setAttribute('cy',C);c.setAttribute('r',170);
+c.setAttribute('fill','rgba(250,204,21,.28)');c.setAttribute('stroke','#a16207');c.setAttribute('stroke-width','1.5');g.appendChild(c);
+const c2=c.cloneNode();c2.setAttribute('r',120);c2.setAttribute('fill','none');c2.setAttribute('stroke-opacity','.4');g.appendChild(c2);
+let d='',tx='';
+for(let a=0;a<360;a++){
+ const len=a%10==0?14:(a%5==0?9:5);
+ const[p1,p2]=[pos(a,170),pos(a,170-len)];
+ d+=`M${p1[0].toFixed(1)} ${p1[1].toFixed(1)}L${p2[0].toFixed(1)} ${p2[1].toFixed(1)}`;
+ if(a%10==0){const p=pos(a,150);tx+=`<text x="${p[0].toFixed(1)}" y="${(p[1]+3).toFixed(1)}" font-size="9" text-anchor="middle" fill="#713f12">${a}</text>`}
+}
+const p=document.createElementNS(NS,'path');p.setAttribute('d',d);p.setAttribute('stroke','#713f12');p.setAttribute('stroke-width','.8');g.appendChild(p);
+const t=document.createElementNS(NS,'g');t.innerHTML=tx;g.appendChild(t);
+// baseline and center cross
+const l=document.createElementNS(NS,'path');l.setAttribute('d',`M${C-170} ${C}H${C+170}M${C} ${C-170}V${C+170}`);l.setAttribute('stroke','#a16207');l.setAttribute('stroke-opacity','.5');g.appendChild(l);
+proto.appendChild(g);
+})();
+// drag + rotate (drag inside moves, drag near edge rotates)
+let tx=0,ty=0,rot=0,mode=null,st=null;
+function apply(){$('pg').setAttribute('transform',`translate(${tx} ${ty}) rotate(${rot} ${C} ${C})`)}
+function pt(e){const s=$('s'),r=s.getBoundingClientRect(),k=400/r.width;return[(e.clientX-r.left)*k,(e.clientY-r.top)*k]}
+$('s').addEventListener('pointerdown',e=>{
+ if(proto.style.display==='none')return;
+ const[x,y]=pt(e),dx=x-(C+tx),dy=y-(C+ty),d=Math.hypot(dx,dy);
+ if(d>170)return;
+ mode=d>135?'rot':'mov';
+ st={x,y,tx,ty,rot,a:Math.atan2(dy,dx)*180/Math.PI};
+ $('s').setPointerCapture(e.pointerId);
+});
+$('s').addEventListener('pointermove',e=>{
+ if(!mode)return;const[x,y]=pt(e);
+ if(mode==='mov'){tx=st.tx+x-st.x;ty=st.ty+y-st.y}
+ else{const a=Math.atan2(y-(C+st.ty),x-(C+st.tx))*180/Math.PI;rot=st.rot+a-st.a}
+ apply();
+});
+['pointerup','pointercancel'].forEach(n=>$('s').addEventListener(n,()=>mode=null));
+function newPoint(){
+ let a;do{a=Math.floor(Math.random()*71)*5+5}while(a===ang||a%360===0);
+ ang=a;tries=0;busy=false;
+ const[x,y]=pos(a,R);
+ $('pt').setAttribute('cx',x);$('pt').setAttribute('cy',y);$('pt').style.display='';
+ const[ex,ey]=pos(a,190);$('rad').setAttribute('x2',ex);$('rad').setAttribute('y2',ey);
+ const ar=48,[sx,sy]=pos(0,ar),[fx,fy]=pos(a,ar);
+ $('arc').setAttribute('d',`M${C} ${C}L${sx} ${sy}A${ar} ${ar} 0 ${a>180?1:0} 0 ${fx.toFixed(2)} ${fy.toFixed(2)}Z`);
+ $('arc').style.display='';
+ const[qx,qy]=pos(a/2,ar+20);$('arcq').setAttribute('x',qx);$('arcq').setAttribute('y',qy+6);$('arcq').style.display='';$('rad').style.display='';
+ $('bProto').disabled=false;$('val').disabled=false;$('bChk').disabled=false;
+ $('val').value='';$('msg').textContent='';$('msg').style.color='';
+ $('val').focus({preventScroll:true});
+}
+$('bNew').onclick=()=>{if(ang!==null&&!busy&&tries===0){tot++;upd()} newPoint()};
+$('bProto').onclick=()=>{
+ const v=proto.style.display==='none';
+ proto.style.display=v?'':'none';
+ $('bProto').textContent=v?'🙈 إخفاء المنقلة':'📏 إحضار المنقلة';
+ if(v){tx=ty=rot=0;apply()}
+};
+function upd(){$('score').textContent=`الصحيحة: ${ok} / ${tot}`}
+function check(){
+ if(ang===null||busy)return;
+ const v=parseFloat($('val').value);
+ if(isNaN(v)){$('msg').style.color='var(--ko)';$('msg').textContent='اكتب قيمة الزاوية أولاً';return}
+ const m=$('msg');
+ if(Math.abs(v-ang)<=2){
+  tot++;ok++;upd();busy=true;
+  m.style.color='var(--ok)';m.textContent=`✅ أحسنت! الزاوية ${ang}°`;
+  setTimeout(newPoint,1300);
+ }else{
+  tries++;
+  if(tries>=3){
+   tot++;upd();busy=true;
+   m.style.color='var(--ko)';m.textContent=`❌ الجواب الصحيح ${ang}°`;
+   setTimeout(newPoint,1800);
+  }else{
+   m.style.color='var(--ko)';
+   m.textContent=v>ang?'❌ القيمة كبيرة، حاول مرة أخرى':'❌ القيمة صغيرة، حاول مرة أخرى';
+  }
+ }
+}
+$('bChk').onclick=check;
+let dl=null;
+(async()=>{try{if(window.claude&&claude.use){dl=await claude.use('downloads');if(dl)$('bSave').style.display=''}}catch(e){}})();
+$('bSave').onclick=()=>{
+ if(!dl)return;
+ const svg=$('s').cloneNode(true);
+ svg.setAttribute('xmlns',NS);svg.setAttribute('width',1200);svg.setAttribute('height',1200);
+ svg.querySelectorAll('text').forEach(t=>t.setAttribute('font-family','Tahoma,Arial,sans-serif'));
+ const bg=document.createElementNS(NS,'rect');
+ bg.setAttribute('width',400);bg.setAttribute('height',400);bg.setAttribute('fill','#ffffff');
+ svg.insertBefore(bg,svg.firstChild);
+ const img=new Image();
+ img.onload=()=>{
+  const cv=document.createElement('canvas');cv.width=cv.height=1200;
+  cv.getContext('2d').drawImage(img,0,0,1200,1200);
+  cv.toBlob(b=>{if(b)dl.save({filename:'angle.png',data:b}).catch(()=>{})},'image/png');
+ };
+ img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(new XMLSerializer().serializeToString(svg));
+};
+$('val').addEventListener('keydown',e=>{if(e.key==='Enter')check()});
+</script>
+</body>
+</html>
